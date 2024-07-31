@@ -37,11 +37,12 @@ func (s *SafeStack[T]) Trim(n int) {
 	}
 }
 
-// RePopulate - insert a full slice into the stack; drop down to maxsize if necessary
+// RePopulate - insert a new slice into the stack; drop down to maxsize if necessary
+// note that here the item order is the inverse of Clear() + PushMany(): FILO vs LIFO
 func (s *SafeStack[T]) RePopulate(items []T) {
 	s.mutex.Lock()
-	defer s.mutex.Unlock()
 	s.Items = items
+	s.mutex.Unlock()
 	s.Trim(s.Maxsize)
 }
 
