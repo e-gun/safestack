@@ -20,7 +20,8 @@ func NewSafeStack[T any](items []T) *SafeStack[T] {
 	}
 }
 
-// NewMax - set a new max stack size; trim to that size if necessary
+// NewMax - set a new max stack size; trim to that size if necessary; drop the deepest items first.
+// NewMax(2) on stack [1, 2, 3] -> [2, 3]
 func (s *SafeStack[T]) NewMax(n int) {
 	s.Trim(n)
 	s.mutex.Lock()
@@ -28,7 +29,8 @@ func (s *SafeStack[T]) NewMax(n int) {
 	s.mutex.Unlock()
 }
 
-// Trim - drop the stack size down to n
+// Trim - drop the stack size down to n; drop the deepest items first.
+// Trim(2) on stack [1, 2, 3] -> [2, 3]
 func (s *SafeStack[T]) Trim(n int) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -37,7 +39,7 @@ func (s *SafeStack[T]) Trim(n int) {
 	}
 }
 
-// RePopulate - insert a new slice into the stack; drop down to maxsize if necessary
+// RePopulate - insert a new slice into the stack; drop down to maxsize if necessary.
 // note that here the item order is the inverse of Clear() + PushMany(): FILO vs LIFO
 func (s *SafeStack[T]) RePopulate(items []T) {
 	s.mutex.Lock()
@@ -46,7 +48,8 @@ func (s *SafeStack[T]) RePopulate(items []T) {
 	s.Trim(s.Maxsize)
 }
 
-// Push - add an item to the top of the stack; drop an item from the bottom if necessary
+// Push - add an item to the top of the stack; drop an item from the bottom if necessary.
+// Push(3) onto [1, 2] -> stack [1, 2, 3]
 func (s *SafeStack[T]) Push(item T) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -56,22 +59,23 @@ func (s *SafeStack[T]) Push(item T) {
 	}
 }
 
-// PushMany - add multiple items to the top of the stack; first in last out
-// push [1, 2, 3] onto [0] -> stack [0, 1, 2, 3]
+// PushMany - add multiple items to the top of the stack; first in last out.
+// PushMany([1, 2, 3]) onto stack [-1, 0] -> stack [-1, 0, 1, 2, 3]
 func (s *SafeStack[T]) PushMany(items []T) {
 	for _, item := range items {
 		s.Push(item)
 	}
 }
 
-// Len - return the # of items in the stacK
+// Len - return the # of items in the stack.
 func (s *SafeStack[T]) Len() int {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	return len(s.Items)
 }
 
-// Peek - look at the top item in the stack; but do not pop it
+// Peek - look at the top item in the stack; but do not pop it.
+// peek() from stack [1, 2, 3] -> return 3; and stack is still [1, 2, 3]
 func (s *SafeStack[T]) Peek() (T, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -85,7 +89,8 @@ func (s *SafeStack[T]) Peek() (T, error) {
 	return i, nil
 }
 
-// Pop - pop the top item from the stack leaving it smaller by one
+// Pop - pop the top item from the stack leaving it smaller by one.
+// Pop() from stack [1, 2, 3] -> return 3; and now stack is [1, 2].
 func (s *SafeStack[T]) Pop() (T, error) {
 	i, e := s.Peek()
 	if len(s.Items) == 0 {
@@ -96,21 +101,23 @@ func (s *SafeStack[T]) Pop() (T, error) {
 	}
 }
 
-// AssumeSafePop - Pop() but brazenly assume that the stack is not empty
+// AssumeSafePop - Pop() but brazenly assume that the stack is not empty.
+// AssumeSafePop() from stack [1, 2, 3] -> return 3; and now stack is [1, 2]
 func (s *SafeStack[T]) AssumeSafePop() T {
 	i, _ := s.Pop()
 	return i
 }
 
-// Clear - empty the stack
+// Clear - empty the stack.
+// Clear() on stack [1, 2, 3] -> []
 func (s *SafeStack[T]) Clear() {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	s.Items = []T{}
 }
 
-// PeekAll - return all items in the stack but leave the stack unchanged; last in first out
-// push 1, 2, 3 -> stack [1, 2, 3] -> peek [3, 2, 1]
+// PeekAll - return all items in the stack but leave the stack unchanged; last in first out.
+// Push(1), Push(2), Push(3) -> stack [1, 2, 3] -> PeekAll() returns [3, 2, 1]
 func (s *SafeStack[T]) PeekAll() []T {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
@@ -124,31 +131,32 @@ func (s *SafeStack[T]) PeekAll() []T {
 	return all
 }
 
-// PeekAtSlice - return all items in the stack but leave the stack unchanged; first in last out
-// push 1, 2, 3 -> stack [1, 2, 3] -> peek [1, 2, 3]
+// PeekAtSlice - return all items in the stack but leave the stack unchanged; first in last out.
+// Push(1), Push(2), Push(3) -> stack [1, 2, 3] -> PeekAtSlice() returns [1, 2, 3]
 func (s *SafeStack[T]) PeekAtSlice() []T {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	return s.Items
 }
 
-// PopAll - return all items in the stack and empty the stack; last in first out
-// push 1, 2, 3 -> stack [1, 2, 3] -> pop [3, 2, 1]
+// PopAll - return all items in the stack and empty the stack; last in first out.
+// Push(1), Push(2), Push(3) -> stack [1, 2, 3] -> PopAll() returns [3, 2, 1]
 func (s *SafeStack[T]) PopAll() []T {
 	all := s.PeekAll()
 	s.Clear()
 	return all
 }
 
-// PopSlice - return all items in the stack and empty the stack; first in last out
-// push 1, 2, 3 -> stack [1, 2, 3] -> pop [1, 2, 3]
+// PopSlice - return all items in the stack and empty the stack; first in last out.
+// Push(1), Push(2), Push(3) -> stack [1, 2, 3] -> PopSlice() returns [1, 2, 3]
 func (s *SafeStack[T]) PopSlice() []T {
 	all := s.PeekAtSlice()
 	s.Clear()
 	return all
 }
 
-// Reverse - invert the item order in the stack
+// Reverse - invert the item order in the stack.
+// Reverse() stack [1, 2, 3] -> stack [3, 2, 1]
 func (s *SafeStack[T]) Reverse() {
 	// PeekAll() reverses... Just need to write after the read.
 	rev := s.PeekAll()
